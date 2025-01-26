@@ -54,13 +54,7 @@ jobs:
       # Debugging Section: Test Database Connectivity
       - name: Test Database Connectivity
         run: |
-          php -r "try { 
-            new PDO('mysql:host=${{ secrets.DB_HOST }};dbname=${{ secrets.DB_DATABASE }}', '${{ secrets.DB_USERNAME }}', '${{ secrets.DB_PASSWORD }}'); 
-            echo 'Database connection successful!'; 
-          } catch (Exception $e) { 
-            echo 'Database connection failed: ' . $e->getMessage(); 
-            exit(1); 
-          };"
+          php -r "try { new PDO('mysql:host=${{ secrets.DB_HOST }};dbname=${{ secrets.DB_DATABASE }}', '${{ secrets.DB_USERNAME }}', '${{ secrets.DB_PASSWORD }}'); echo 'Database connection successful!'; } catch (Exception $e) { echo 'Database connection failed: ' . $e->getMessage(); exit(1); }"
 
       # Debugging Section: Ensure Database Exists
       - name: Ensure Database Exists
