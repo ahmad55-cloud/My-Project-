@@ -3,7 +3,7 @@ name: Deploy Laravel Project to EC2
 on:
   push:
     branches:
-      - main # Trigger deployment when pushing to the main branch
+      - main
 
 jobs:
   deploy:
@@ -11,113 +11,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the code
+      # Step 1: Checkout the code from the repository
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Set up PHP
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.1' # Use the version of PHP your project requires
-          extensions: mbstring, exif, pcntl, bcmath, curl, intl, mysql # Add extensions as needed
-          tools: composer, npm # Include Composer and npm
-
-      # Step 3: Install Composer dependencies
-      - name: Install PHP dependencies
-        run: composer install --no-progress --no-suggest --prefer-dist
-
-      # Step 4: Install Node.js and npm dependencies
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18' # Use the version of Node.js your project requires
-
-      - name: Install Node.js dependencies
-        run: npm install
-
-      # Step 5: Copy and configure .env file
-      - name: Set up environment variables
-        run: |
-          cp .env.example .env
-          echo "APP_KEY=" >> .env # Add APP_KEY dynamically in the next step
-          echo "FILESYSTEM_DISK=public" >> .env
-
-      # Step 6: Generate application key
-      - name: Generate application key
-        run: php artisan key:generate
-
-      # Step 7: Create symbolic link for storage
-      - name: Create storage link
-        run: php artisan storage:link
-
-      # Debugging Step 1: Test Database Secrets
-      - name: Debug Database Secrets
-        run: |
-          echo "DB_HOST=${{ secrets.DB_HOST }}"
-          echo "DB_DATABASE=${{ secrets.DB_DATABASE }}"
-          echo "DB_USERNAME=${{ secrets.DB_USERNAME }}"
-          echo "DB_PASSWORD length: $(echo -n '${{ secrets.DB_PASSWORD }}' | wc -c)" # Outputs the length
-
-      # Debugging Step 2: Test Database Connectivity via MySQL CLI
-      - name: Test Database Connectivity
-        run: |
-          mysql -h ${{ secrets.DB_HOST }} -u ${{ secrets.DB_USERNAME }} -p${{ secrets.DB_PASSWORD }} -e "SELECT 1;"
-
-      # Debugging Step 3: PHP PDO Connection Test
-      - name: Test Database Connection via PHP
-        run: |
-          php -r "
-          try {
-              \$pdo = new PDO(
-                  'mysql:host=${{ secrets.DB_HOST }};dbname=${{ secrets.DB_DATABASE }}',
-                  '${{ secrets.DB_USERNAME }}',
-                  '${{ secrets.DB_PASSWORD }}',
-                  [
-                      PDO::ATTR_TIMEOUT => 10,
-                  ]
-              );
-              echo 'Database connection successful!';
-          } catch (Exception \$e) {
-              echo 'Database connection failed: ' . \$e->getMessage();
-              exit(1);
-          }"
-
-      # Debugging Step 4: Check DNS Resolution
-      - name: Check DNS Resolution
-        run: nslookup ${{ secrets.DB_HOST }}
-
-      # Step 8: Ensure Database Exists
-      - name: Ensure Database Exists
-        run: |
-          mysql -h ${{ secrets.DB_HOST }} -u ${{ secrets.DB_USERNAME }} -p${{ secrets.DB_PASSWORD }} -e "CREATE DATABASE IF NOT EXISTS \${{ secrets.DB_DATABASE }};"
-
-      # Step 9: Migrate the database
-      - name: Migrate the database
-        env:
-          DB_CONNECTION: mysql
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: 3306
-          DB_DATABASE: ${{ secrets.DB_DATABASE }}
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        run: php artisan migrate --force
-
-      # Step 10: Deploy to EC2 (via SSH)
-      - name: Deploy to EC2
+      # Step 2: SSH into EC2 and execute php.sh
+      - name: Run Deployment Script on EC2
         uses: appleboy/ssh-action@v0.1.8
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          host: ${{ secrets.EC2_HOST }}        # EC2 Host (set in GitHub Secrets)
+          username: ubuntu                     # Default EC2 username
+          key: ${{ secrets.EC2_PRIVATE_KEY }}  # Private Key for SSH
           port: 22
           script: |
-            cd /var/www/html/My-Project- # Adjust the path to your project directory
-            git pull origin main
-            composer install --no-dev --optimize-autoloader
-            npm install --production
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan storage:link
-            sudo systemctl restart nginx php8.1-fpm
+            chmod +x /home/ubuntu/php.sh       # Make the script executable
+            /home/ubuntu/php.sh                # Execute the script
