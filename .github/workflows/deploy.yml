@@ -57,7 +57,7 @@ jobs:
           echo "DB_HOST=${{ secrets.DB_HOST }}"
           echo "DB_DATABASE=${{ secrets.DB_DATABASE }}"
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}"
-          echo "DB_PASSWORD length: ${#secrets.DB_PASSWORD}" # Ensures password isn't empty
+          echo "DB_PASSWORD length: $(echo -n '${{ secrets.DB_PASSWORD }}' | wc -c)" # Outputs the length
 
       # Debugging Step 2: Test Database Connectivity via MySQL CLI
       - name: Test Database Connectivity
