@@ -54,20 +54,28 @@ jobs:
       # Debugging Step 1: Test Database Secrets
       - name: Debug Database Secrets
         run: |
-          echo "Host: ${{ secrets.DB_HOST }}"
-          echo "Database: ${{ secrets.DB_DATABASE }}"
-          echo "Username: ${{ secrets.DB_USERNAME }}"
-          echo "Password: [hidden]"
+          echo "DB_HOST=${{ secrets.DB_HOST }}"
+          echo "DB_DATABASE=${{ secrets.DB_DATABASE }}"
+          echo "DB_USERNAME=${{ secrets.DB_USERNAME }}"
+          echo "DB_PASSWORD length: ${#secrets.DB_PASSWORD}" # Ensures password isn't empty
 
-      # Debugging Step 2: Test Database Connectivity
+      # Debugging Step 2: Test Database Connectivity via MySQL CLI
       - name: Test Database Connectivity
+        run: |
+          mysql -h ${{ secrets.DB_HOST }} -u ${{ secrets.DB_USERNAME }} -p${{ secrets.DB_PASSWORD }} -e "SELECT 1;"
+
+      # Debugging Step 3: PHP PDO Connection Test
+      - name: Test Database Connection via PHP
         run: |
           php -r "
           try {
               \$pdo = new PDO(
                   'mysql:host=${{ secrets.DB_HOST }};dbname=${{ secrets.DB_DATABASE }}',
                   '${{ secrets.DB_USERNAME }}',
-                  '${{ secrets.DB_PASSWORD }}'
+                  '${{ secrets.DB_PASSWORD }}',
+                  [
+                      PDO::ATTR_TIMEOUT => 10,
+                  ]
               );
               echo 'Database connection successful!';
           } catch (Exception \$e) {
@@ -75,12 +83,16 @@ jobs:
               exit(1);
           }"
 
-      # Debugging Step 3: Ensure Database Exists
+      # Debugging Step 4: Check DNS Resolution
+      - name: Check DNS Resolution
+        run: nslookup ${{ secrets.DB_HOST }}
+
+      # Step 8: Ensure Database Exists
       - name: Ensure Database Exists
         run: |
-          mysql -h ${{ secrets.DB_HOST }} -u ${{ secrets.DB_USERNAME }} -p${{ secrets.DB_PASSWORD }} -e "CREATE DATABASE IF NOT EXISTS \${{ secrets.DB_DATABASE }}\;"
+          mysql -h ${{ secrets.DB_HOST }} -u ${{ secrets.DB_USERNAME }} -p${{ secrets.DB_PASSWORD }} -e "CREATE DATABASE IF NOT EXISTS \${{ secrets.DB_DATABASE }};"
 
-      # Step 8: Migrate the database
+      # Step 9: Migrate the database
       - name: Migrate the database
         env:
           DB_CONNECTION: mysql
@@ -91,7 +103,7 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: php artisan migrate --force
 
-      # Step 9: Deploy to EC2 (via SSH)
+      # Step 10: Deploy to EC2 (via SSH)
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v0.1.8
         with:
